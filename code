@@ -1,0 +1,195 @@
+import cv2
+import numpy as np
+import os
+
+# Haar Cascade 얼굴 검출기 로드
+xml = "C:/opencv-4.x/data/haarcascades/haarcascade_frontalface_alt.xml"
+face_cascade = cv2.CascadeClassifier(xml)
+
+# 이미지 리스트 (판다, 치타, 개, 토끼)
+imageList = {
+    "panda": [
+        cv2.imread("p_r_e-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("p_l_e-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("p_n-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+    ],
+    "cheetah": [
+        cv2.imread("t_r_e-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("t_l_e-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("t_n-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+    ],
+    "dog": [
+        cv2.imread("dog_right_eye-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("dog_left_eye-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("dog_nose-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+    ],
+    "rabbit": [
+        cv2.imread("r_r_e-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("r_l_e-removebg-preview (1).png", cv2.IMREAD_UNCHANGED),
+        cv2.imread("r_n-removebg-preview.png", cv2.IMREAD_UNCHANGED),
+    ],
+}
+
+# 초기 이미지 선택=> 판다
+current_image_list_name = "panda"
+selected_image_list = imageList[current_image_list_name]
+
+# 카메라 열기
+cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0)
+
+# 이미지 저장 디렉토리 생성
+save_dir = "saved_images"
+os.makedirs(save_dir, exist_ok=True)
+
+image_counter = 0  # 저장된 이미지 수
+
+while True:
+    ret, frame = cap.read()  # 카메라 프레임 읽기
+
+    if not ret:
+        break
+
+    # 좌우 반전
+    frame = cv2.flip(frame, 1)
+
+    # 얼굴 검출
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(
+        gray, scaleFactor=1.3, minNeighbors=5, minSize=(30, 30)
+    )
+
+    for x, y, w, h in faces:
+        # 얼굴 중간 위쪽에 이미지 삽입
+        ear_height = h // 3  # 이미지의 높이를 얼굴 높이의 1/3로 설정
+        ear_width = w // 3  # 이미지의 너비를 얼굴 너비의 1/3로 설정
+
+        # 선택한 이미지 리스트의 이미지 가져오기
+        right_ear_image = selected_image_list[0]
+        left_ear_image = selected_image_list[1]
+        nose_image = selected_image_list[2]
+
+        # 오른쪽 귀 이미지 크기 조정
+        right_ear_height = h // 2  # 오른쪽 귀 이미지의 높이를 얼굴 높이의 1/2로 설정
+        right_ear_width = w // 2  # 오른쪽 귀 이미지의 너비를 얼굴 너비의 1/2로 설정
+
+        right_ear_image_resized = cv2.resize(
+            right_ear_image, (right_ear_width, right_ear_height)
+        )  # 오른쪽 귀 이미지 크기 조정
+
+        # 오른쪽 귀 이미지 위치 조절
+        ear_x_offset = 20  # x 좌표 이동 (양수는 오른쪽으로, 음수는 왼쪽으로)
+        ear_y_offset = 15  # y 좌표 이동 (양수는 아래로, 음수는 위로)
+
+        # 오른쪽 귀 이미지의 x 및 y 좌표 계산
+        right_ear_x = x + w - right_ear_width + ear_x_offset
+        right_ear_y = y - right_ear_height + ear_y_offset
+
+        # 귀 이미지를 오른쪽 귀 위치에 적용
+        for i in range(3):  # BGR 채널에 대해 알파 채널 적용
+            frame[
+                right_ear_y : right_ear_y + right_ear_height,
+                right_ear_x : right_ear_x + right_ear_width,
+                i,
+            ] = (
+                right_ear_image_resized[:, :, 3]
+                / 255
+                * right_ear_image_resized[:, :, i]
+                + (1 - right_ear_image_resized[:, :, 3] / 255)
+                * frame[
+                    right_ear_y : right_ear_y + right_ear_height,
+                    right_ear_x : right_ear_x + right_ear_width,
+                    i,
+                ]
+            )
+
+        # 왼쪽 귀 이미지 크기 조정
+        left_ear_height = h // 2  # 왼쪽 귀 이미지의 높이를 얼굴 높이의 1/2로 설정
+        left_ear_width = w // 2  # 왼쪽 귀 이미지의 너비를 얼굴 너비의 1/2로 설정
+
+        left_ear_image_resized = cv2.resize(
+            left_ear_image, (left_ear_width, left_ear_height)
+        )  # 왼쪽 귀 이미지 크기 조정
+
+        # 왼쪽 귀 이미지 위치 조절
+        ear_x_offset = -20  # x 좌표 이동 (양수는 오른쪽으로, 음수는 왼쪽으로)
+        ear_y_offset = 10  # y 좌표 이동 (양수는 아래로, 음수는 위로)
+
+        # 왼쪽 귀 이미지의 x 및 y 좌표 계산
+        left_ear_x = x + ear_x_offset
+        left_ear_y = y - left_ear_height + ear_y_offset
+
+        # 귀 이미지를 왼쪽 귀 위치에 적용
+        for i in range(3):  # BGR 채널에 대해 알파 채널 적용
+            frame[
+                left_ear_y : left_ear_y + left_ear_height,
+                left_ear_x : left_ear_x + left_ear_width,
+                i,
+            ] = (
+                left_ear_image_resized[:, :, 3] / 255 * left_ear_image_resized[:, :, i]
+                + (1 - left_ear_image_resized[:, :, 3] / 255)
+                * frame[
+                    left_ear_y : left_ear_y + left_ear_height,
+                    left_ear_x : left_ear_x + left_ear_width,
+                    i,
+                ]
+            )
+
+        # 얼굴의 중심 좌표 계산 -> 입 이미지 위치
+        center_x = x + w // 2
+        center_y = y + h // 2 + h // 3
+
+        # 삽입할 입 이미지 크기를 얼굴 크기에 맞게 조절
+        overlay_width = w // 2 + w // 6
+        overlay_height = h // 2 + h // 5
+        overlay_image = cv2.resize(nose_image, (overlay_width, overlay_height))
+
+        # 입 이미지를 얼굴 중심에 삽입
+        x1 = center_x - overlay_width // 2
+        y1 = center_y - overlay_height // 2
+        x2 = x1 + overlay_width
+        y2 = y1 + overlay_height
+
+        # 입 이미지를 삽입할 위치에 오버레이
+        mask = overlay_image[:, :, 3]  # 알파 채널
+        overlay_image = overlay_image[:, :, :-1]  # b, g, r 컬러
+        crop = frame[y1:y2, x1:x2]
+        cv2.copyTo(overlay_image, mask, crop)
+
+    # 키보드 키 출력
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
+        break
+    elif key == ord("s"):  # "s" 키를 누르면 이미지 저장
+        image_name = os.path.join(save_dir, f"image_{image_counter}.png")
+        cv2.imwrite(image_name, frame)
+        print(f"Saved {image_name}")
+        image_counter += 1
+    elif key == ord("1"):  # "1" 키를 누르면 이미지 리스트를 "panda"로 변경
+        current_image_list_name = "panda"
+        selected_image_list = imageList[current_image_list_name]
+    elif key == ord("2"):  # "2" 키를 누르면 이미지 리스트를 "cheetah"로 변경
+        current_image_list_name = "cheetah"
+        selected_image_list = imageList[current_image_list_name]
+    elif key == ord("3"):  # "3" 키를 누르면 이미지 리스트를 "dog"로 변경
+        current_image_list_name = "dog"
+        selected_image_list = imageList[current_image_list_name]
+    elif key == ord("4"):  # "4" 키를 누르면 이미지 리스트를 "rabbit"로 변경
+        current_image_list_name = "rabbit"
+        selected_image_list = imageList[current_image_list_name]
+
+    # 화면에 텍스트 출력
+    cv2.putText(
+        frame,
+        "<q=end, s=save, 1=panda, 2=cheetah, 3=dog, 4=rabbit>",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (64, 64, 64),
+        2,
+        cv2.LINE_AA,
+    )
+    cv2.imshow("AnimalFilter", frame)
+
+# 캡처와 창 닫기
+cap.release()
+cv2.destroyAllWindows()
